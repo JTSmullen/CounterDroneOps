@@ -10,10 +10,10 @@
 // --- End of Pin Definitions ---
 
 // --- WiFi and MQTT Config ---
-const char* WIFI_SSID = "TCBTDJ"; // Your WiFi Network
-const char* WIFI_PASSWORD = "wooD2Chair1!"; // Your WiFi Password
+const char* WIFI_SSID = ""; // Your WiFi Network
+const char* WIFI_PASSWORD = ""; // Your WiFi Password
 
-const char* MQTT_SERVER = "192.168.68.64"; // Your Raspberry Pi's IP
+const char* MQTT_SERVER = ""; // Your Raspberry Pi's IP
 const int MQTT_PORT = 1883; // Default
 // --- End of WiFi and MQTT Config ---
 
