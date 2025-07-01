@@ -22,7 +22,12 @@ void setup()
   }
   Serial.println("C4001 connected!");
 
-  radar.setSensorMode(eExitMode);
+  radar.setSensorMode(eSpeedMode); 
+
+  radar.setDetectThres(60, 1200, 50);       //range an object is considered detected in (third param is sensitivity, less is more sensitive)
+  radar.setDetectionRange(60, 1200, 1200);  //range the c4001 scans in (detects all motion from .6m to 12m)
+  radar.setTrigSensitivity(5);              //trigger sensitivity 
+  radar.setKeepSensitivity(5);              //keep-locked-on sensitivity (this determines when a moving object is no longer detected)
 
   sSensorStatus_t status = radar.getStatus();
   Serial.print("Work status: ");
@@ -35,18 +40,18 @@ void setup()
 
 void loop()
 {
-  if (radar.motionDetection())
+  if (radar.getTargetNumber() > 0)
   {
-//    sSensorStatus_t data = radar.getStatus(); //have to fix this section later
-    Serial.print("Motion detected!\n");
-    /*Serial.print("Motion: ");   
-    Serial.print(data.motion);
-    Serial.print(" | Presence: ");
-    Serial.print(data.presence);
+    Serial.print(" | No.: ");
+    Serial.print(radar.getTargetNumber());
     Serial.print(" | Range: ");
-    Serial.print(data.range);
+    Serial.print(radar.getTargetRange());
     Serial.print(" | Speed: ");
-    Serial.println(data.speed);*/
+    Serial.println(radar.getTargetSpeed());
   }
-  delay(500);
+  else
+  {
+    Serial.println("No motion detected.");
+  }
+  delay(1000);       //displays every 1sec but can be changed to whatever
 }
