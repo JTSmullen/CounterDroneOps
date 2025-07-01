@@ -32,11 +32,12 @@ def on_connect(client, userdata, flags, rc, properties=None):
         if rc == 5:
             print(f"{Fore.RED}---> Connection refused: Check Mosquitto config for 'allow_anonymous true'.")
 
-# The callback for when a PUBLISH message is received from the server.
+# MODIFIED: The on_message function is now updated to handle the new, detailed JSON format.
 def on_message(client, userdata, msg):
     """
     This function is called for every message received.
     It decodes the message, formats it, and prints it to the console.
+    It now handles both simple ('no_motion') and detailed ('motion_detected') payloads.
     """
     try:
         # Get the current time and format it nicely
@@ -58,11 +59,27 @@ def on_message(client, userdata, msg):
         if status == "motion_detected":
             color = Fore.GREEN
             status_text = "Presence Detected"
-            print(f"{color}NODE - {node_id}: {status_text} | Time: {timestamp}")
+            
+            # NEW: Extract detailed motion data if it exists in the payload
+            target_num = data.get("targetNumber")
+            range_cm = data.get("range_cm")
+            speed_ms = data.get("speed_m_s")
+            
+            # NEW: Build a detailed output string with the new data
+            # The "is not None" check makes this backward compatible in case an old
+            # sensor sends a simple "motion_detected" message.
+            if range_cm is not None and speed_ms is not None:
+                details = f"| Target: {target_num} | Range: {range_cm:.1f} cm | Speed: {speed_ms:.2f} m/s"
+                print(f"{color}NODE - {node_id}: {status_text} {details} | Time: {timestamp}")
+            else:
+                # Fallback for the old, simple motion message
+                print(f"{color}NODE - {node_id}: {status_text} | Time: {timestamp}")
+
         elif status == "no_motion":
             color = Fore.RED
             status_text = "No Presence"
-            print(f"{color}NODE - {node_id}: {status_text}       | Time: {timestamp}")
+            # We add padding to align the timestamp with the longer motion_detected line
+            print(f"{color}NODE - {node_id}: {status_text}                                           | Time: {timestamp}")
         else:
             # Handle any other status messages
             color = Fore.YELLOW
@@ -85,6 +102,10 @@ if __name__ == "__main__":
     client.on_message = on_message
 
     print("--- MQTT Logger Initializing ---")
+    if not MQTT_SERVER:
+        print(f"{Fore.RED}---> CRITICAL: MQTT_SERVER IP address is not set. Please edit the script and add it.")
+        exit()
+
     try:
         # Connect to the broker
         client.connect(MQTT_SERVER, MQTT_PORT, 60)
