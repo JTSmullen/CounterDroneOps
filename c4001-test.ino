@@ -2,10 +2,10 @@
 
 #include <DFRobot_C4001.h>
 
-#define RX_PIN 19
-#define TX_PIN 18
+#define C4001_RX 19
+#define C4001_TX 18
 
-DFRobot_C4001_UART radar(&Serial1, 9600, RX_PIN, TX_PIN);
+DFRobot_C4001_UART radar(&Serial1, 9600, C4001_RX, C4001_TX);
 
 void setup()
 {
@@ -53,5 +53,5 @@ void loop()
   {
     Serial.println("No motion detected.");
   }
-  delay(1000);       //displays every 1sec but can be changed to whatever
+  delay(1000);       //displays every 1 second, able to be modified 
 }
