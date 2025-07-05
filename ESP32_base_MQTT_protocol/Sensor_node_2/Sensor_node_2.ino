@@ -1,32 +1,34 @@
 // --- Import Statements ---
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <DFRobot_C4001.h>
-// --- End of Import Statements ---
+#include <DFRobot_C4001.h> // Connect to the C4001 sensor
+#include <WiFi.h> // Connect to the wifi for mqtt communication
+#include <PubSubClient.h> // mqtt communication library
+// --- End of Import Statements
 
-// --- Pin Definitions ---
+// --- PIN DEFINITIONS ---
 #define RX_PIN 19 // C4001 RX (C/R) PIN
-#define TX_PIN 18 // C4001 TX (C/T) PIN
+#define TX_PIN 18 // C4001 TX (D/T) PIN
 // --- End of Pin Definitions ---
 
-// --- WiFi and MQTT Config ---
-const char* WIFI_SSID = ""; // Your WiFi Network
-const char* WIFI_PASSWORD = ""; // Your WiFi Password
+// --- WIFI and MQTT Config ---
+const char* WIFI_SSID = ""; // Your WiFi network
+const char* WIFI_PASSWORD = ""; // Your WiFi password
 
-const char* MQTT_SERVER = ""; // Your Raspberry Pi's IP
-const int MQTT_PORT = 1883; // Default
-// --- End of WiFi and MQTT Config ---
+// --- MQTT CONFIG ---
+const char* MQTT_SERVER = ""; // Your Raspberry Pi's IP address on your home network
+// To get the this run 'hostname -I' on your Pi's terminal
+const int MQTT_PORT = 1883; // General port for MQTT communication
+// ---End of WiFi and MQTT Config ---
 
-// --- Sensor Node Config ---
+// --- SENSOR NODE CONFIG ---
 const int NODE_ID = 2; // Which sensor node of the array
 const char* MQTT_TOPIC = "sensors/radar/status"; // Topic to publish to
 // --- End of Sensor Node Config ---
 
-// --- Global Variables ---
+// --- GLOBAL OBJECTS ---
 DFRobot_C4001_UART radar(&Serial1, 9600, RX_PIN, TX_PIN);
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-// --- End of Global Variables ---
+// --- End of Global Objects ---
 
 // --- Functions ---
 /*
@@ -44,25 +46,23 @@ PubSubClient mqttClient(espClient);
 */
 void setup_wifi()
 {
-    delay(10); // Short delay to allow serial monitor to init
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(WIFI_SSID); // Print which SSID you are connecting to 
+  delay(10);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(WIFI_SSID);
 
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD); // Connect to the WiFi network
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    // Continuously attempt to connect until successful
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-    }
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
 
-    // Once connected, print the IP address
-    Serial.println();
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
+  Serial.println();
+  Serial.println("WiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
 /*
@@ -78,29 +78,25 @@ void setup_wifi()
 
     * @return void
 */
-void reconnect_mqtt()
+void reconnect_mqtt() 
 {
-    // Loop until the connection is established
-    while (!mqttClient.connected())
-    {
-        // Attempt to connect to the MQTT broker
-        Serial.print("Attempting MQTT connection...");
-        String clientId = "RadarNode-" + String(NODE_ID);
+  while (!mqttClient.connected()) 
+  {
+    Serial.print("Attempting MQTT connection...");
+    String clientId = "RadarNode-" + String(NODE_ID);
 
-        // If connected, print success, otherwise print failure
-        // and wait 5 seconds before retrying
-        if (mqttClient.connect(clientId.c_str()))
-        {
-            Serial.println("connected!");
-        }
-        else 
-        {
-            Serial.print("failed, rc=");
-            Serial.print(mqttClient.state());
-            Serial.println(" try again in 5 seconds");
-            delay(5000);
-        }
+    if (mqttClient.connect(clientId.c_str())) 
+    {
+      Serial.println("connected!");
+    } 
+    else 
+    {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
     }
+  }
 }
 
 /*
@@ -111,42 +107,19 @@ void reconnect_mqtt()
     * @details This function will create a JSON payload with the node ID and status, then publish it to the specified MQTT topic.
 
     * @note This function should be called when motion is detected.
-
-    * @return void
-*/
-void publishMotionData()
-{
-    // Create a JSON payload with the node ID and status
-    String payload = "{\"nodeId\": " + String(NODE_ID) + ", \"status\":\"motion_detected\"}";
-
-    // Print the topic and payload to the serial monitor for debugging
-    Serial.print("Publishing to topic: ");
-    Serial.println(MQTT_TOPIC);
-    Serial.print("Payload: ");
-    Serial.println(payload);
-
-    // Publish the payload to the MQTT topic
-    mqttClient.publish(MQTT_TOPIC, payload.c_str());
-}
-
-/*
-    * @name publishStatus
-
-    * @brief Function to publish the current status of the sensor node.
-
-    * @details This function will create a JSON payload with the node ID and status, then publish it to the specified MQTT topic.
-
-    * @note This function should be called periodically to update the status.
+    * @note This functions is used to send a no motion detected Json Payload
 
     * @return void
 */
 void publishStatus(const char* status)
 {
-    // Generate JSON formatted payload
-    String payload = "{\"nodeId\":" + String(NODE_ID) + ",\"status\":\"" + status + "\"}";
-
-    // Publish the payload to the MQTT topic
-    mqttClient.publish(MQTT_TOPIC, payload.c_str());
+  String payload = "{\"nodeId\":" + String(NODE_ID) + ",\"status\":\"" + status + "\"}";
+  
+  Serial.print("Publishing message to topic: ");
+  Serial.println(MQTT_TOPIC);
+  Serial.println(payload);
+  
+  mqttClient.publish(MQTT_TOPIC, payload.c_str());
 }
 
 /*
@@ -162,40 +135,44 @@ void publishStatus(const char* status)
 */
 void setup()
 {
-    // Baud rate for serial communication
-    Serial.begin(115200);
+  // Baud rate for serial communication
+  Serial.begin(115200);
 
-    // Ensure the serial port is ready
-    while (!Serial)
-    {
-        delay(10);
-    }
+  // Ensure the Serial port is ready
+  while (!Serial)
+  {
+    delay(10);
+  }
+  
+  // Initializes WiFi connection
+  setup_wifi();
 
-    // Initializes WiFi connection
-    setup_wifi();
+  // Initializes MQTT Client
+  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
 
-    // Initializes MQTT client
-    mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+  // Initializes the radar sensor and ensures its connected
+  while (!radar.begin())
+  {
+    Serial.println("C4001 not detected!");
+    delay(100);
+  }
+  Serial.println("C4001 connected!");
 
-    // Initializes the radar sensor and ensures its connected
-    while(!radar.begin())
-    {
-        Serial.println("C4001 not detected");
-        delay(1000);
-    }
-    Serial.println("C4001 Connected!");
+  radar.setSensorMode(eSpeedMode);
 
-    // Set the radar sensor mode
-    radar.setSensorMode(eExitMode);
+  radar.setDetectThres(60, 1200, 50); // range an object that is detected
+  radar.setDetectionRange(60, 1200, 1200); // Range the c4001 scans in for motion (in cms)
+  radar.setTrigSensitivity(5); // Trigger Sensitivity
+  radar.setKeepSensitivity(5); // Keep-locked-on sensitivity (determines when a moving object is no longer detected)
 
-    // Print radar sensor status
-    sSensorStatus_t status = radar.getStatus();
-    Serial.print("Work status: ");
-    Serial.println(status.workStatus);
-    Serial.print("Work Mode: ");
-    Serial.println(status.workMode);
-    Serial.print("Init status: ");
-    Serial.print(status.initStatus);
+  // Print radar sensor status
+  sSensorStatus_t status = radar.getStatus();
+  Serial.print("Work status: ");
+  Serial.println(status.workStatus);
+  Serial.print("Work Mode: ");
+  Serial.println(status.workMode);
+  Serial.print("Init status: ");
+  Serial.print(status.initStatus);
 }
 
 /*
@@ -211,27 +188,43 @@ void setup()
 */
 void loop()
 {
-    // Ensure the mqtt client is connected
-    // if not try to reconnect
-    if (!mqttClient.connected())
-    {
-        reconnect_mqtt();
-    }
+  // Ensure the mqtt client is connected
+  // if not try to reconnect
+  if (!mqttClient.connected())
+  {
+    reconnect_mqtt();
+  }
 
-    // Loop the MQTT client
-    mqttClient.loop();
+  // Loop the MQTT Client
+  mqttClient.loop();
 
-    // Check if the radar sensor detects motion
-    if (radar.motionDetection())
-    {
-        // Yes motion detected
-        publishStatus("motion_detected");
-    }
-    else
-    {
-        // No motion detected
-        publishStatus("no_motion");
-    }
+  // Check if the radar sensor detects motion
+  if (radar.getTargetNumber() > 0)
+  {
+    // Motion detected, get data from the sensor
+    int targetNum = radar.getTargetNumber();
+    float targetRange = radar.getTargetRange();
+    float targetSpeed = radar.getTargetSpeed();
 
-    delay(1000); // Delay to not overload the MQTT broker
+    // Create a detailed JSON Payload to send the receiver
+    String payload = "{\"nodeId\":" + String(NODE_ID) +
+                     ",\"status\":\"motion_detected\"" +
+                     ",\"targetNumber\":" + String(targetNum) +
+                     ",\"range_cm\":" + String(targetRange) +
+                     ",\"speed_m_s\":" + String(targetSpeed) + "}";
+
+    // Print the publishing message
+    Serial.print("Publishing message to topic: ");
+    Serial.println(MQTT_TOPIC);
+    Serial.println(payload);
+    
+    mqttClient.publish(MQTT_TOPIC, payload.c_str());
+  }
+  else
+  {
+    // No motion is detected
+    publishStatus("no_motion");
+  }
+
+  delay(1000); // Check for motion every 1 second to not overload the MQTT Broker
 }
