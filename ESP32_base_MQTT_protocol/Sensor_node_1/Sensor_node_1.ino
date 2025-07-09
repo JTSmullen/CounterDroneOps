@@ -9,11 +9,11 @@
 #define C4001_TX_PIN 18 // C4001 TX (D/T) PIN
 
 // --- WiFi Config ---
-const char* WIFI_SSID = "TCBTDJ"; // Wifi Network
-const char* WIFI_PASSWORD = "wooD2Chair1!"; // Wifi password
+const char* WIFI_SSID = ""; // Wifi Network
+const char* WIFI_PASSWORD = ""; // Wifi password
 
 // --- MQTT config ---
-const char* MQTT_SERVER = "192.168.68.64"; // Raspberry Pi's IP address
+const char* MQTT_SERVER = ""; // Raspberry Pi's IP address
 const int MQTT_PORT = 1883;
 const char* MQTT_TOPIC = "sensors/radar/status";
 
