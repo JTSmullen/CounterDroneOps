@@ -109,10 +109,10 @@ void setup() {
   Serial.println("C4001 Connected!");
 
   c4001_radar.setSensorMode(eSpeedMode);
-  c4001_radar.setDetectThres(60, 1200, 50);
+  c4001_radar.setDetectThres(60, 1200, 10);
   c4001_radar.setDetectionRange(60, 1200, 1200);
-  c4001_radar.setTrigSensitivity(5);
-  c4001_radar.setKeepSensitivity(5);
+  c4001_radar.setTrigSensitivity(3);
+  c4001_radar.setKeepSensitivity(1);
 
   // --- Network and MQTT Setup ---
   setup_wifi();
