@@ -52,11 +52,16 @@ void NodeManager::process_loop() {
 
             process_sensor_update(esp_id_, sensor);
 
-            auto calculated_pos = drone_tracker_.updateAndCalculate(full_sensor_id, point.range);
+            if (point.presence) {
+                auto calculated_pos = drone_tracker_.updateAndCalculate(full_sensor_id, point.range);
 
-            if (calculated_pos) {
-                process_drone_location(*calculated_pos);
+                if (calculated_pos) {
+                    process_drone_location(*calculated_pos);
+                }
+            } else {
+                drone_tracker_.clearSensorDistance(full_sensor_id);
             }
+
 
         } catch (const std::exception& e) {
             std::cerr << "Error in process_loop for node " << esp_id_ << ": " << e.what() << std::endl;

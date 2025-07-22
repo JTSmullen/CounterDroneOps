@@ -46,4 +46,6 @@ class DroneTracker {
         DroneTracker(const std::map<std::string, Point>& sensor_positions);
 
         std::optional<Point> updateAndCalculate(const std::string& full_sensor_id, double distance);
+
+        void clearSensorDistance(const std::string& full_sensor_id);
 };

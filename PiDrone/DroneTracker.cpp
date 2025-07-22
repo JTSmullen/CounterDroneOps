@@ -76,3 +76,8 @@ std::optional<Point> DroneTracker::updateAndCalculate(const std::string& full_se
         sensor_positions_.at(id3), latest_distances_.at(id3)
     );
 }
+
+void DroneTracker::clearSensorDistance(const std::string& full_sensor_id) {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    latest_distances_.erase(full_sensor_id);
+}

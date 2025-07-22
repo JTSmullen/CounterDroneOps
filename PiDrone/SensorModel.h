@@ -13,12 +13,14 @@ struct Point {
 };
 
 struct SensorData {
+    bool presence = false;
     double range = 0.0;
     double speed = 0.0;
     long long timestamp_ms = 0;
 
     static SensorData from_json(const nlohmann::json& j) {
         SensorData d;
+        d.presence = j.value("presence", d.presence);
         d.range = j.value("range", d.range);
         d.speed = j.value("speed", d.speed);
         d.timestamp_ms = j.value("ts", 0LL);

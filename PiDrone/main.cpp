@@ -28,12 +28,19 @@ std::mutex g_map_mutex;
 
 void process_sensor_update(const std::string& esp_id, const TrackedSensor& sensor) {
     SensorData latest = sensor.getLatestData();
-    std::cout << FORE_CYAN << "UPDATE | ESP: " << std::left << std::setw(10) << esp_id
-              << " | Sensor: " << std::left << std::setw(9) << sensor.getId()
-              << std::fixed << std::setprecision(2)
-              << " | Range: " << std::setw(6) << latest.range << " m"
-              << " | Speed: " << std::setw(5) << latest.speed << " m/s"
-              << STYLE_RESET << std::endl;
+    std::string presence_str = latest.presence ? "DETECTED" : "Clear";
+    std::string color = latest.presence ? FORE_YELLOW : FORE_CYAN;
+
+    std::cout << color << "UPDATE | ESP: " << std::left << std::setw(10) << esp_id
+            << " | Sensor: " << std::left << std::setw(9) << sensor.getId()
+            << " | Presence: " << std::left << std::setw(8) << presence_str;
+
+    if (latest.presence) {
+        std::cout << std::fixed << std::setprecision(2)
+            << " | Range: " << std::setw(6) << latest.range << " m";
+    }
+    
+    std::cout << STYLE_RESET << std::endl;
 }
 
 void process_drone_location(const Point& drone_pos) {
