@@ -1,7 +1,8 @@
 #include "NodeManager.h"
-#include "SensorData.h"
+#include "SensorModel.h"
 #include <iostream>
 #include <iomanip>
+#include "nlohmann/json.hpp"
 
 void process_sensor_update(const std::string& esp_id, const TrackedSensor& sensor);
 void process_drone_location(const Point& drone_pos);
@@ -48,7 +49,7 @@ void NodeManager::process_loop() {
 
             auto& sensor = sensors_.at(sensor_id);
             auto data_json = nlohmann::json::parse(msg->get_payload_str());
-            SensorData point = SensorData::fromJson(data_json);
+            SensorData point = SensorData::from_json(data_json);
             sensor.addDataPoint(point);
 
             process_sensor_update(esp_id_, sensor);

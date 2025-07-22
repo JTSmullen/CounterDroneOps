@@ -9,7 +9,7 @@
 #include "NodeManager.h"
 #include "DroneTracker.h"
 
-const std::string MQTT_SERVER   = ""; // IP of your pi
+const std::string MQTT_SERVER   = "192.168.68.69"; // IP of your pi
 const int         MQTT_PORT     = 1883;
 const std::string MQTT_BASE_TOPIC = "drones/data";
 const std::string MQTT_SUB_TOPIC  = MQTT_BASE_TOPIC + "/+/+";
