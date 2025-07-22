@@ -1,4 +1,5 @@
 #include "NodeManager.h"
+#include "SensorData.h"
 #include <iostream>
 #include <iomanip>
 

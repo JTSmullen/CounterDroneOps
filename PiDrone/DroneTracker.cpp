@@ -56,12 +56,12 @@ std::optional<Point> DroneTracker::updateAndCalculate(const std::string& full_se
 
     latest_distances_[full_sensor_id] = distance;
 
-    if (latest_distance_.size() < required_sensor)ids_.size() {
+    if (latest_distances_.size() < required_sensor_ids_.size()) {
         return std::nullopt;
     }
 
     for (const auto& id : required_sensor_ids_) {
-        if (latest_distances.find(id) == latest_distances_.end()) {
+        if (latest_distances_.find(id) == latest_distances_.end()) {
             return std::nullopt;
         }
     }

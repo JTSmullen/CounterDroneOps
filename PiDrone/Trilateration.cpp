@@ -6,7 +6,7 @@ std::optional<Point> trilaterate(const Point& s1, double d1,
                                 const Point& s3, double d3)
 {
     double A = 2* (s2.x - s1.x);
-    double B = 2 * s2.y - s1.y);
+    double B = 2 * (s2.y - s1.y);
     double C = pow(d1, 2) - pow (d2, 2) + pow(s2.x, 2) - pow(s1.x, 2)
                 + pow(s2.y, 2) - pow(s1.y, 2);
     double D = 2 * (s3.x - s1.x);
