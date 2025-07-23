@@ -1,34 +1,62 @@
-// --- Import Statements ---
-#include <DFRobot_C4001.h> // Connect to the C4001 sensor
-#include <WiFi.h> // Connect to the wifi for mqtt communication
-#include <PubSubClient.h> // mqtt communication library
+/**
+  * @file ESP32_Node_1.ino
+  * @brief Main firmware for a single ESP32 sensor node.
+  * @author Joshua Smullen
+  * @version 1.0
+  * @date 2025-07-22
+  *
+  * This firmware runs on an ESP32 and manages two distinct radar sensors:
+  * - C4001 DFRobot for range and speed detection.
+  * - An RCWL-0516 for simple presence detection.
+  *
+  * It uses an OOP approach to handle sensors and FreeRTOS to manage sensor polling
+  * and network communication independently. Data is published to a central MQTT
+  * broker in a structured JSON format.
+*/
 
-// --- Pin Definitions ---
-// C4001 Advanced Radar
-#define C4001_RX_PIN 19 // C4001 RX (C/R) PIN
-#define C4001_TX_PIN 18 // C4001 TX (D/T) PIN
+// --- Dependencies ---
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include "Sensors.h" // custom header with sensor class implementations
+// --- End dependencies ---
+
+// --- Hardware pin definitions ---
+#define C4001_RX_PIN 19 // C4001 RX Pin
+#define C4001_TX_PIN 18 // C4001 TX PIn
+#define RCWL_IN_PIN 13 // RCWL-0516 'OUT' Pin
+// --- End Hardware pin definitions ---
 
 // --- WiFi Config ---
-const char* WIFI_SSID = ""; // Wifi Network
-const char* WIFI_PASSWORD = ""; // Wifi password
+const char* WIFI_SSID = "";
+const char* WIFI_PASSWORD = "";
+// --- End WiFI config ---
 
 // --- MQTT config ---
-const char* MQTT_SERVER = ""; // Raspberry Pi's IP address
-const int MQTT_PORT = 1883;
-const char* MQTT_TOPIC = "sensors/radar/status";
+const char* MQTT_SERVER = ""; // rasp pi IP
+const int MQTT_PORT = 1883; // base mqtt port
+// --- End MQTT config
 
-// --- Sensor Node Config ---
-const int NODE_ID = 1; // sensor array / board ID
+// --- Node Config ---
+// Each ESP32 must have a unique Identifier
+const char* ESP_ID = "esp32_1";
+// --- End Node Config ---
+
+// --- Sensor Config ---
+const int NUM_SENSORS = 2;
+DroneSensor* sensors[NUM_SENSORS]; // Array of pointers to base sensor classes
+// --- End sensor config ---
 
 // --- Global Objects ---
-DFRobot_C4001_UART c4001_radar(&Serial1, 9600, C4001_RX_PIN, C4001_TX_PIN); // C4001 declaration
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+// --- End Global Objects ---
 
-// --- FreeRTOS Handles ---
-SemaphoreHandle_t mqttMutex;
+// --- Functions ---
 
-// --- WiFi and MQTT connection functions ---
+/**
+  * @brief Connects the ESP32 to the wifi network
+*/
 void setup_wifi() {
   delay(10);
   Serial.println();
@@ -44,10 +72,14 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+/**
+  * @brief Connects or reconnects to the MQTT broker.
+*/
 void reconnect_mqtt() {
   while (!mqttClient.connected()) {
     Serial.print("Attempting MQTT connection...");
-    String clientId = "RadarNode-" + String(NODE_ID);
+    String clientId = "ESP32Node-";
+    clientId += ESP_ID;
     if (mqttClient.connect(clientId.c_str())) {
       Serial.println("connected!");
     } else {
@@ -59,89 +91,98 @@ void reconnect_mqtt() {
   }
 }
 
-// --- RTOS Task for C4001 ---
-void c4001_Task(void *pvParameters) {
-  Serial.println("C4001 Task started");
-  for (;;) { // Infinite loop
-    String payload = "";
-    // Check if the radar sensor detects a target
-    if (c4001_radar.getTargetNumber() > 0) {
-      // Motion detected, get data from the sensor
-      int targetNum = c4001_radar.getTargetNumber();
-      float targetRange = c4001_radar.getTargetRange();
-      float targetSpeed = c4001_radar.getTargetSpeed();
+/**
+  * @brief FreeRTOS task to poll all sensors and publish data.
+  *
+  * This task runs in a infinite loop, independtly of the main loop().
+  * It iterates through the global sensors array, reads data from each
+  * and publishes any state changes to the MQTT broker.
+  *
+  * @param pvParameters Standard FreeRTOS task parameter (unused)
+*/
+void sensorProcessingTask(void *pvParameters) {
+  Serial.println("Sensor Processing Task started.");
+  for (;;) { // infinite loop
+    for (int i = 0; i < NUM_SENSORS; i++) {
+      if (sensors[i]->readData()) {
+        // 1 create the MQTT topic string
+        String topic = "drones/data/";
+        topic += ESP_ID;
+        topic += "/";
+        topic += sensors[i]->getSensorId();
 
-      // Create a detailed JSON Payload, identifying the sensor type
-      payload = "{\"nodeId\":" + String(NODE_ID) +
-                ",\"sensorType\":\"C4001\"" + 
-                ",\"status\":\"motion_detected\"" +
-                ",\"targetNumber\":" + String(targetNum) +
-                ",\"range_cm\":" + String(targetRange) +
-                ",\"speed_m_s\":" + String(targetSpeed) + "}";
-    } else {
-      // No motion is detected
-      payload = "{\"nodeId\":" + String(NODE_ID) + 
-                ",\"sensorType\":\"C4001\"" +
-                ",\"status\":\"no_motion\"}";
+        // 2 Buld the payload
+        StaticJsonDocument<256> doc;
+        sensors[i]->buildJsonPayload(doc);
+        
+        char payload[256];
+        serializeJson(doc, payload);
+
+        // 3 publish data
+        Serial.print("Publishing to ");
+        Serial.print(topic);
+        Serial.print(": ");
+        Serial.println(payload);
+        mqttClient.publish(topic.c_str(), payload);
+      }
     }
-    
-    // Use the Mutex to publish to MQTT
-    if (xSemaphoreTake(mqttMutex, portMAX_DELAY) == pdTRUE) {
-      Serial.println("[C4001] Publishing: " + payload);
-      mqttClient.publish(MQTT_TOPIC, payload.c_str());
-      xSemaphoreGive(mqttMutex); // Release
-    }
-    
-    // Wait before the next check to not overload the MQTT Broker
-    vTaskDelay(1000 / portTICK_PERIOD_MS); 
+
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
+// --- Setup and Loop functions ---
+
+/**
+  * @brief Main setup function, run once at boot.
+*/
 void setup() {
   Serial.begin(115200);
   while (!Serial) {delay(10);}
 
-  // Init Hardware
-  while (!c4001_radar.begin()) {
-    Serial.println("C4001 not detected! Retrying...");
-    delay(1000);
+  Serial.println("--- Drone SEnsor Node Booting ---");
+  Serial.print("Node ID: ");
+  Serial.println(ESP_ID);
+
+  // init our radar objects
+  sensors[0] = new RadarC4001("radar_A", Serial1, 9600, C4001_RX_PIN, C4001_TX_PIN);
+  sensors[1] = new RadarRCWL("radar_B", RCWL_IN_PIN);
+
+  // init sensors
+  for (int i = 0; i < NUM_SENSORS; i++) {
+    if(sensors[i]->initialize()){
+      Serial.printf("Sensor '%s' initialized successfully\n", sensors[i]->getSensorId());
+    } else {
+      Serial.printf("!!! FAILED to initialize sensor '%s'. Halting.\n", sensors[i]->getSensorId());
+      while(1);
+    }
   }
-  Serial.println("C4001 Connected!");
 
-  c4001_radar.setSensorMode(eSpeedMode);
-  c4001_radar.setDetectThres(60, 1200, 10);
-  c4001_radar.setDetectionRange(60, 1200, 1200);
-  c4001_radar.setTrigSensitivity(3);
-  c4001_radar.setKeepSensitivity(1);
-
-  // --- Network and MQTT Setup ---
   setup_wifi();
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
 
-  // --- Create RTOS ---
-  // create a mutex for MQTT publishing
-  mqttMutex = xSemaphoreCreateMutex();
-
-  // Create the tasks, one for each type of sensor
   xTaskCreate(
-    c4001_Task, // Task Function
-    "C4001 Task", // Name of the Task
-    4096, // Stack size
-    NULL, // Task input Parameter
-    1, // Priority
-    NULL // Task Handle
+    sensorProcessingTask,
+    "SensorTask",
+    4096,
+    NULL,
+    1,
+    NULL
   );
 
-  Serial.println("Setup Complete, Tasks are running.");
+  Serial.println("Setup complete. Main loop is now handling MQTT connection.");
 }
 
-// --- Main loop ---
+/**
+  * @brief Main loop, runs infinitely after setup.
+  *
+  * Its only job is to maintain MQTT connection.
+  * Sensor logic is handled by the dedicated RTOS task.
+*/
 void loop() {
-  // this loop is now only respondible for maintaining the MQTT connection.
-  // The sensor logic is handled by the RTOS tasks.
   if (!mqttClient.connected()) {
     reconnect_mqtt();
   }
-  mqttClient.loop(); // allow the mqtt client to process messages
-  delay(10);
+  mqttClient.loop();
+  vTaskDelay(10 / portTICK_PERIOD_MS); // Task delay to yield cpu usage
 }
