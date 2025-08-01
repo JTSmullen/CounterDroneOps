@@ -1,27 +1,25 @@
 #include "LD2412.h"
 
-LD2412::LD2412(unsigned long baud, uint8_t rxPin, uint8_t txPin) {
-    HardwareSerial LD_Serial(2);
-    LD_Serial.begin(baud, SERIAL_8N1, rxPin, txPin);
+LD2412::LD2412(HardwareSerial& hSerial) : serial(hSerial) {
 }
 
 /*-----MISC Functions-----*/
 void LD2412::sendCommand(uint8_t* data) {
     this->data_len[0] = sizeof(data);
 
-    LD_Serial.write(FRAME_HEADER, 4);
-    LD_Serial.write(this->data_len, 2);
-    LD_Serial.write(data, this->data_len[0]);
-    LD_Serial.write(FRAME_FOOTER, 4);
+    this->serial.write(FRAME_HEADER, 4);
+    this->serial.write(this->data_len, 2);
+    this->serial.write(data, this->data_len[0]);
+    this->serial.write(FRAME_FOOTER, 4);
 }
 
 uint8_t* LD2412::getAck(uint8_t respData, uint8_t len) {
-    unsigned long time = getTime();
+    unsigned long time = CURRENT_TIME;
     int i = 0;
 
-    while (getTime() - time < ACK_TIMEOUT)
-        while (LD_Serial.available() && i < BUFFER_SIZE)
-            this->buffer[i++] = LD_Serial.read();
+    while (CURRENT_TIME - time < ACK_TIMEOUT)
+        while (this->serial.available() && i < BUFFER_SIZE)
+            this->buffer[i++] = this->serial.read();
 
     if (i >= len) {
         for (i=0; i<len; i++) {
@@ -243,14 +241,14 @@ int LD2412::getStaticSensitivity() { //TEMPORARY NOTE: Potential issue
 /*-----READ DATA Functions-----*/
 bool LD2412::readSerial() {
     //If serial was already successfully read within the past 1000 ms, this function is skipped
-    if (this->serialLastRead != NULL && getTime() - this->serialLastRead < REFRESH_THRESHOLD)
+    if (this->serialLastRead != NULL && CURRENT_TIME - this->serialLastRead < REFRESH_THRESHOLD)
         return true;
 
     int i = 0;
-    long int timeRef = getTime();
-    while (LD_Serial.available && i < 21) { //add timeout here
+    long int timeRef = CURRENT_TIME;
+    while (this->serial.available() && i < 21) { //add timeout here
         for (i=0; i<21; i++) {
-            this->buffer[i] = LD_Serial.read();
+            this->buffer[i] = this->serial.read();
 
             //Ensures packet capture is properly aligned at header
             if (this->buffer[0] != 0xF4
@@ -266,11 +264,11 @@ bool LD2412::readSerial() {
                 return false;
 
             //Returns function as failed if timeout was reached
-            else if (getTime() - timeRef > ACK_TIMEOUT)
+            else if (CURRENT_TIME - timeRef > ACK_TIMEOUT)
                 return false;
         }
     }
-    this->serialLastRead = getTime();
+    this->serialLastRead = CURRENT_TIME;
     for (i=0; i<21; i++)
         this->serialBuffer[i] = this->buffer[i];
     return true;
