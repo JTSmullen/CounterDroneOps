@@ -58,6 +58,40 @@ bool LD2412::disableConfig() {
     return false;
 }
 
+bool LD2412::readSerial() {
+    //If serial was already successfully read within the past 1000 ms, this function is skipped
+    if (this->serialLastRead != NULL && CURRENT_TIME - this->serialLastRead < REFRESH_THRESHOLD)
+        return true;
+
+    int i = 0;
+    long int timeRef = CURRENT_TIME;
+    while (this->serial.available() && i < 21) {
+        for (i=0; i<21; i++) {
+            this->buffer[i] = this->serial.read();
+
+            //Ensures packet capture is properly aligned at header
+            if (this->buffer[0] != 0xF4
+                || (i>0 && this->buffer[1] != 0xF3)
+                || (i>1 && this->buffer[2] != 0xF2)
+                || (i>2 && this->buffer[3] != 0xF1))
+                i=-1;
+            //Ensures the packet was completely and properly captured by verifying footer
+            else if (i>16 && this->buffer[17] != 0xF8
+                || i>17 && this->buffer[18] != 0xF7
+                || i>18 && this->buffer[19] != 0xF6
+                || i>19 && this->buffer[20] != 0xF5)
+                return false;
+
+            else if (CURRENT_TIME - timeRef > ACK_TIMEOUT)
+                return false;
+        }
+    }
+    this->serialLastRead = CURRENT_TIME;
+    for (i=0; i<21; i++)
+        this->serialBuffer[i] = this->buffer[i];
+    return true;
+}
+
 bool LD2412::resetDeviceSettings() {
     uint8_t data[] = {0xA2, 0x00};
     bool success = false;
@@ -200,7 +234,7 @@ int* LD2412::getParamConfig() {
 
 }
 
-int LD2412::getMotionSensitivity() { //TEMPORARY NOTE: Potential issue
+int LD2412::getMotionSensitivity() {
     uint8_t data[] = {0x13, 0x00};
 
     if (!enableConfig())
@@ -219,7 +253,7 @@ int LD2412::getMotionSensitivity() { //TEMPORARY NOTE: Potential issue
     return -1;
 }
 
-int LD2412::getStaticSensitivity() { //TEMPORARY NOTE: Potential issue
+int LD2412::getStaticSensitivity() {
     uint8_t data[] = {0x14, 0x00};
 
     if (!enableConfig())
@@ -239,41 +273,6 @@ int LD2412::getStaticSensitivity() { //TEMPORARY NOTE: Potential issue
 }
 
 /*-----READ DATA Functions-----*/
-bool LD2412::readSerial() {
-    //If serial was already successfully read within the past 1000 ms, this function is skipped
-    if (this->serialLastRead != NULL && CURRENT_TIME - this->serialLastRead < REFRESH_THRESHOLD)
-        return true;
-
-    int i = 0;
-    long int timeRef = CURRENT_TIME;
-    while (this->serial.available() && i < 21) { //add timeout here
-        for (i=0; i<21; i++) {
-            this->buffer[i] = this->serial.read();
-
-            //Ensures packet capture is properly aligned at header
-            if (this->buffer[0] != 0xF4
-                || (i>0 && this->buffer[1] != 0xF3)
-                || (i>1 && this->buffer[2] != 0xF2)
-                || (i>2 && this->buffer[3] != 0xF1))
-                i=-1;
-            //Ensures the packet was completely and properly captured by verifying footer
-            else if (i>16 && this->buffer[17] != 0xF8
-                || i>17 && this->buffer[18] != 0xF7
-                || i>18 && this->buffer[19] != 0xF6
-                || i>19 && this->buffer[20] != 0xF5)
-                return false;
-
-            //Returns function as failed if timeout was reached
-            else if (CURRENT_TIME - timeRef > ACK_TIMEOUT)
-                return false;
-        }
-    }
-    this->serialLastRead = CURRENT_TIME;
-    for (i=0; i<21; i++)
-        this->serialBuffer[i] = this->buffer[i];
-    return true;
-}
-
 int LD2412::targetState() {
     if (!readSerial())
         return -1;
