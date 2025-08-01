@@ -1,25 +1,26 @@
 #ifndef LD2412_H
 #define LD2412_H
 
+#include <Arduino.h>
 #include <cstdint>
 #include "esp_timer.h"
-#include <Arduino.h>
 #include "HardwareSerial.h"
 
-#define getTime() esp_timer_get_time()/1000ULL
+#define CURRENT_TIME esp_timer_get_time()/1000ULL
 
 class LD2412 {
 
 public:
     /**
-     * @brief: Constructor with parameters to specify for Serial(2)
-     * @param baud Baud rate for serial
-     * @param rxPin RX pin
-     * @param txPin TX pin
+     * @brief: Constructor which uses the passed in Serial for the object
+     * @param hSerial HardwareSerial object reference
      */
-    LD2412(unsigned long baud, uint8_t rxPin, uint8_t txPin);
+    LD2412(HardwareSerial& hSerial);
 
 private:
+    //Reference for the passed in Serial
+    HardwareSerial& serial;
+
     //Determines when a response takes too long
     const int ACK_TIMEOUT = 200;
 
@@ -31,15 +32,15 @@ private:
     int arrayResponse[5];
 
     //For use by readSerial()
-    static const int REFRESH_THRESHOLD = 1000;      //Forces serial to be read if 1000ms have passed since last reading
+    static const int REFRESH_THRESHOLD = 1000;      //Forces serial to be read if 1000 ms have passed since last reading
     unsigned long serialLastRead = NULL;            //Latest time serial was read
     static constexpr int SERIAL_BUFFER_SIZE = 21;
     uint8_t serialBuffer[SERIAL_BUFFER_SIZE];
 
     /*-----Frame Structure-----*/
-    const uint8_t FRAME_HEADER[] = {0xFD, 0xFC, 0xFB, 0xFA};
-    const uint8_t FRAME_FOOTER[] = {0x04, 0x03, 0x02, 0x01};
-    uint8_t data_len[] = {0x00, 0x00};
+    const uint8_t FRAME_HEADER[4] = {0xFD, 0xFC, 0xFB, 0xFA};
+    const uint8_t FRAME_FOOTER[4] = {0x04, 0x03, 0x02, 0x01};
+    uint8_t data_len[2] = {0x00, 0x00};
 
     /*-----MISC Functions-----*/
     /**
