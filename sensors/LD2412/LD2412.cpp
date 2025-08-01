@@ -230,8 +230,8 @@ int* LD2412::getParamConfig() {
         return this->arrayResponse;
     }
     disableConfig();
+    
     return nullptr;
-
 }
 
 int LD2412::getMotionSensitivity() {
@@ -250,6 +250,7 @@ int LD2412::getMotionSensitivity() {
         return min;
     }
     disableConfig();
+    
     return -1;
 }
 
@@ -269,6 +270,7 @@ int LD2412::getStaticSensitivity() {
         return min;
     }
     disableConfig();
+    
     return -1;
 }
 
