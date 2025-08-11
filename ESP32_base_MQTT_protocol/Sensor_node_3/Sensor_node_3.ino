@@ -1,24 +1,49 @@
+/**
+  * @file ESP32_Node_3.ino
+  * @brief Main firmware for a single ESP32 sensor node.
+  * @authors Joshua Smullen, Trent Tobias
+  * @version 1.0
+  * @date 2025-08-11
+  *
+  * This firmware runs on an ESP32 and manages two distinct radar sensors:
+  * - An NRF24L01 transceiver to detect noise on a given channel by a drone's presence.
+  * - An RCWL-0516 for simple presence detection.
+  *
+  * It uses an OOP approach to handle sensors and FreeRTOS to manage sensor polling
+  * and network communication independently. Data is published to a central MQTT
+  * broker in a structured JSON format.
+*/
+
 // --- Import Statements ---
 #include <WiFi.h> // Connect to the wifi for mqtt communication
 #include <PubSubClient.h> // mqtt communication library
+#include <RF24.h> // nrf24 library
 
 // --- Pin Definitions ---
 // RCWL-0516 Simple Radar
 #define RCWL_IN_PIN 13 // RCWL-0516 'OUT' PIN
+// NRF24L01 Transceiver
+#define CE_PIN 16
+#define CSN_PIN 17
+#define SCK_PIN 18
+#define MOSI_PIN 23
+#define MISO_PIN 19
 
 // --- WiFi Config ---
-const char* WIFI_SSID = "TCBTDJ"; // Your WiFi network
-const char* WIFI_PASSWORD = "wooD2Chair1!"; // Your WiFi password
+const char* WIFI_SSID = ""; // Your WiFi network
+const char* WIFI_PASSWORD = ""; // Your WiFi password
 
 // --- MQTT Config ---
-const char* MQTT_SERVER = "192.168.68.64"; // Rasp Pi's IP
+const char* MQTT_SERVER = ""; // Rasp Pi's IP
 const int MQTT_PORT = 1883;
 const char* MQTT_TOPIC = "sensors/radar/status";
 
 // --- Sensor Node Config ---
 const int NODE_ID = 3; // sensor array/board ID
+const uint8_t CHANNEL = 76; // channel for NRF24 to scan for your own drown
 
 // --- Global Objects ---
+RF24 radio(CE_PIN, CSN_PIN);
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
@@ -94,12 +119,55 @@ void rcwl_Task(void *pvParameters) {
   }
 }
 
+// --- RTOS Task for NRF24L01 Transceiver ---
+void nrf24_Task(void *pvParameters) {
+  Serial.println("NRF24L01 Task started");
+
+  for(;;) {
+    String payload = "";
+
+    if (radio.testCarrier()) {  // If activity is present on channel that drone communicates on
+      payload = "{\"nodeId\":" + String(NODE_ID) + 
+                ",\"sensorType\":\"NRF24L01\"" + 
+                ",\"status\":\"noise_detected\"}";
+    } else {
+      String payload = "";
+      payload = "{\"nodeId\":" + String(NODE_ID) + 
+                ",\"sensorType\":\"NRF24L01\"" + 
+                ",\"status\":\"no_noise_detected\"}";
+    }
+
+    // Use the Mutex to publish to MQTT
+    if (xSemaphoreTake(mqttMutex, portMAX_DELAY) == pdTRUE) {
+      Serial.println("[NRF24] Publishing: " + payload);
+      mqttClient.publish(MQTT_TOPIC, payload.c_str());
+      xSemaphoreGive(mqttMutex); // Release
+    }
+  }
+
+    // Wait before the next check to not overload the MQTT Broker
+    vTaskDelay(1000 / portTICK_PERIOD_MS); 
+}
+
 // --- Main Setup ---
 void setup() {
   Serial.begin(115200);
   while (!Serial) {delay(10);}
 
+  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, CSN_PIN);
   pinMode(RCWL_IN_PIN, INPUT);
+
+  // --- Configure NRF24L01 Sensor ---
+  // Set up to only detect activity on a channel; it doesn't translate, store, or transmit bytes
+  radio.setAutoAck(false);                
+  radio.setDataRate(RF24_2MBPS);          
+  radio.setChannel(CHANNEL);
+  radio.setCRCLength(RF24_CRC_DISABLED);  
+  radio.disableDynamicPayloads();
+  radio.setPayloadSize(32);
+  radio.openReadingPipe(1, 0xFFFFFFFFEE);
+  radio.powerUp();
+  radio.startListening();
   
   setup_wifi();
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -109,6 +177,15 @@ void setup() {
   xTaskCreate(
     rcwl_Task, // Task Function
     "RCWL Task", // Name of the task
+    2048, // Stack size
+    NULL, // Task input Parameter
+    1, // Task priority
+    NULL // Task handle
+  );
+
+  xTaskCreate(
+    nrf24_Task, // Task Function
+    "NRF24 Task", // Name of the task
     2048, // Stack size
     NULL, // Task input Parameter
     1, // Task priority
