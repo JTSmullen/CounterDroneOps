@@ -1,8 +1,8 @@
 /**
  * @file LD2412.h
  * @author Trent Tobias
- * @version 1.0
- * @date August 07, 2025
+ * @version 1.0.1
+ * @date August 12, 2025
  * @brief LD2412 serial communication implementation
  */
 
@@ -10,12 +10,10 @@
 #define LD2412_H
 
 #include <Arduino.h>
-#include <cstdint>
 #include <type_traits>
 
-#define CURRENT_TIME millis()
-#define RETURN_ARRAY_TRUE std::true_type
-#define RETURN_ARRAY_FALSE std::false_type
+#define CURRENT_TIME_MS millis()
+#define RETURN_ARRAY (std::true_type{})
 
 class LD2412 {
 
@@ -35,7 +33,7 @@ private:
     const int ACK_TIMEOUT = 200;
 
     //Buffer used in various functions
-    static constexpr int BUFFER_SIZE = 32;
+    static constexpr unsigned int BUFFER_SIZE = 32;
     uint8_t buffer[BUFFER_SIZE];
 
     //Arrays for array responses
@@ -177,22 +175,22 @@ public:
     /**
      * @brief Gets the motion sensitivity.
      * Detections only count as presence when energy is above set sensitivity
-     * @overload Pass in RETURN_ARRAY_TRUE to return a 14-size array pointer containing each single gate's sensitivity
-     * @overload Pass in RETURN_ARRAY_FALSE to return the lowest sensitivity found from across all gates
+     * @overload Do not pass in arg to return the lowest sensitivity found from across all gates
+     * @overload Pass in RETURN_ARRAY to return a 14-size array pointer containing each single gate's sensitivity
      * @return An array ptr or the lowest motion sensitivity between all gates, -1/nullptr if failed
      */
-    int* getMotionSensitivity(RETURN_ARRAY_TRUE);
-    int getMotionSensitivity(RETURN_ARRAY_FALSE);
+    int getMotionSensitivity();
+    int* getMotionSensitivity(std::true_type);
 
     /**
      * @brief Gets the static sensitivity.
      * Detections only count as presence when energy is above set sensitivity
-     * @overload Pass in RETURN_ARRAY_TRUE to return a 14-size array pointer containing each single gate's sensitivity
-     * @overload Pass in RETURN_ARRAY_FALSE to return the lowest sensitivity found from across all gates
+     * @overload Do not pass in arg to return the lowest sensitivity found from across all gates
+     * @overload Pass in RETURN_ARRAY to return a 14-size array pointer containing each single gate's sensitivity
      * @return An array ptr or the lowest static sensitivity between all gates, -1/nullptr if failed
      */
-    int* getStaticSensitivity(RETURN_ARRAY_TRUE);
-    int getStaticSensitivity(RETURN_ARRAY_FALSE);
+    int getStaticSensitivity();
+    int* getStaticSensitivity(std::true_type);
 
     /**
      * @brief Gets the threshold time (in ms) of how often the serial should be read
